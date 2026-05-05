@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Place Tracker</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f5f5f5; color: #222; }
+    header { background: #1a1a2e; color: #fff; padding: 20px 32px; display: flex; align-items: center; gap: 12px; }
+    header h1 { font-size: 1.3rem; font-weight: 600; }
+    header span { font-size: 1.5rem; }
+    .controls { padding: 20px 32px; display: flex; gap: 10px; flex-wrap: wrap; background: #fff; border-bottom: 1px solid #e0e0e0; }
+    .controls input { flex: 1; min-width: 180px; padding: 8px 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.95rem; }
+    .controls select { padding: 8px 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.95rem; background: #fff; }
+    .controls button { padding: 8px 18px; background: #1a1a2e; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 0.95rem; }
+    .controls button:hover { background: #2d2d4e; }
+    #count { padding: 12px 32px; font-size: 0.85rem; color: #666; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; padding: 0 32px 32px; }
+    .card { background: #fff; border-radius: 10px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+    .card-name { font-weight: 600; font-size: 1rem; margin-bottom: 4px; }
+    .card-meta { font-size: 0.82rem; color: #888; margin-bottom: 8px; }
+    .card-notes { font-size: 0.88rem; color: #444; margin-bottom: 10px; line-height: 1.4; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 0.75rem; font-weight: 500; }
+    .badge-wishlist { background: #fff3cd; color: #856404; }
+    .badge-visited { background: #d1e7dd; color: #0f5132; }
+    .badge-type { background: #e8eaf6; color: #3949ab; margin-left: 4px; }
+    .empty { padding: 48px 32px; text-align: center; color: #aaa; font-size: 1rem; }
+    a.maps-link { font-size: 0.8rem; color: #1a73e8; text-decoration: none; }
+    a.maps-link:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+<header>
+  <span>📍</span>
+  <h1>Place Tracker</h1>
+</header>
+
+<div class="controls">
+  <input type="text" id="search" placeholder="Search name, area, notes…" />
+  <select id="statusFilter">
+    <option value="">All statuses</option>
+    <option value="wishlist">Wishlist</option>
+    <option value="visited">Visited</option>
+  </select>
+  <select id="typeFilter">
+    <option value="">All types</option>
+    <option value="an_uong">An uong</option>
+    <option value="ca_phe">Ca phe</option>
+    <option value="du_lich">Du lich</option>
+    <option value="mua_sam">Mua sam</option>
+    <option value="khac">Khac</option>
+  </select>
+  <button onclick="load()">Search</button>
+</div>
+
+<div id="count"></div>
+<div id="grid" class="grid"></div>
+
+<script>
+  async function load() {
+    var q = document.getElementById('search').value.trim();
+    var status = document.getElementById('statusFilter').value;
+    var type = document.getElementById('typeFilter').value;
+
+    var params = new URLSearchParams();
+    if (q) params.set('q', q);
+    if (status) params.set('status', status);
+    if (type) params.set('type', type);
+
+    var res = await fetch('/api/find?' + params.toString());
+    var data = await res.json();
+    render(data.places || []);
+  }
+
+  function render(places) {
+    var count = document.getElementById('count');
+    var grid = document.getElementById('grid');
+
+    count.textContent = places.length + ' place' + (places.length !== 1 ? 's' : '');
+
+    if (places.length === 0) {
+      grid.innerHTML = '<div class="empty">No places found.</div>';
+      return;
+    }
+
+    grid.innerHTML = places.map(function(p) {
+      var statusBadge = '<span class="badge badge-' + p.status + '">' + p.status + '</span>';
+      var typeBadge = p.type ? '<span class="badge badge-type">' + p.type.replace('_', ' ') + '</span>' : '';
+      var notes = p.notes ? '<div class="card-notes">' + p.notes + '</div>' : '';
+      var meta = [p.area, p.address].filter(Boolean).join(' · ');
+      var mapsLink = p.maps_url ? '<a class="maps-link" href="' + p.maps_url + '" target="_blank">Open in Maps</a>' : '';
+
+      return '<div class="card">' +
+        '<div class="card-name">' + p.name + '</div>' +
+        '<div class="card-meta">' + meta + '</div>' +
+        notes +
+        '<div>' + statusBadge + typeBadge + '</div>' +
+        (mapsLink ? '<div style="margin-top:8px">' + mapsLink + '</div>' : '') +
+        '</div>';
+    }).join('');
+  }
+
+  // Search on Enter key
+  document.getElementById('search').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') load();
+  });
+
+  load();
+</script>
+
+</body>
+</html>
