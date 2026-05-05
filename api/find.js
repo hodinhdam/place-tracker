@@ -58,8 +58,32 @@ async function deletePlace(placeId) {
   if (result.error) throw result.error;
 }
 
-// GET /api/find — filter places by query params: area, type, status, q (text search)
+// GET /api/find   — search/filter places
+// PATCH /api/find?id=X — update a place (e.g. mark visited)
+// DELETE /api/find?id=X — delete a place
 var handler = async function handler(req, res) {
+  var id = req.query.id;
+
+  if (req.method === 'DELETE') {
+    if (!id) return res.status(400).json({ error: 'id is required' });
+    var delResult = await supabase.from('places').delete().eq('id', id);
+    if (delResult.error) return res.status(500).json({ error: delResult.error.message });
+    return res.status(200).json({ success: true });
+  }
+
+  if (req.method === 'PATCH') {
+    if (!id) return res.status(400).json({ error: 'id is required' });
+    var body = req.body || {};
+    var patchResult = await supabase
+      .from('places')
+      .update(body)
+      .eq('id', id)
+      .select()
+      .single();
+    if (patchResult.error) return res.status(500).json({ error: patchResult.error.message });
+    return res.status(200).json({ place: patchResult.data });
+  }
+
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
