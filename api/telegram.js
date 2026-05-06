@@ -1,6 +1,6 @@
 'use strict';
 const { createClient } = require('@supabase/supabase-js');
-const { parseAndSavePlace } = require('./save');
+const { parseAndSavePlace, parsePlaceFromMapsUrl, parsePlaceFromImage, savePlace } = require('./save');
 const { findPlaces, getWishlist, getLastSaved, markVisited, deletePlace } = require('./find');
 
 const supabase = createClient(
@@ -54,14 +54,47 @@ module.exports = async function handler(req, res) {
   }
 
   var update = req.body;
-  if (!update || !update.message || !update.message.text) {
+  if (!update || !update.message) {
     return res.status(200).json({ ok: true });
   }
 
   var msg = update.message;
+  if (!msg.text && !msg.photo) {
+    return res.status(200).json({ ok: true });
+  }
+
   var chatId = msg.chat.id;
-  var text = msg.text.trim();
+  var text = (msg.text || '').trim();
   var userId = String(msg.from.id);
+
+  // Handle photo messages
+  if (msg.photo) {
+    try {
+      await sendMessage(chatId, 'Saving...');
+      // Pick the largest photo
+      var photo = msg.photo[msg.photo.length - 1];
+      var fileRes = await fetch('https://api.telegram.org/bot' + process.env.TELEGRAM_TOKEN + '/getFile?file_id=' + photo.file_id);
+      var fileData = await fileRes.json();
+      var filePath = fileData.result.file_path;
+      var imgRes = await fetch('https://api.telegram.org/file/bot' + process.env.TELEGRAM_TOKEN + '/' + filePath);
+      var imgBuffer = await imgRes.arrayBuffer();
+      var imgBase64 = Buffer.from(imgBuffer).toString('base64');
+      var ext = filePath.split('.').pop().toLowerCase();
+      var mediaType = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : 'image/png';
+      var caption = msg.caption || null;
+      var parsed = await parsePlaceFromImage(imgBase64, mediaType, caption);
+      if (!parsed.name) parsed.name = 'Place from screenshot';
+      if (!parsed.maps_url) {
+        var searchQuery = [parsed.name, parsed.address, parsed.area].filter(Boolean).join(' ');
+        parsed.maps_url = 'https://www.google.com/maps/search/' + encodeURIComponent(searchQuery);
+      }
+      var saved = await savePlace(Object.assign({}, parsed, { status: 'wishlist', added_by: userId }));
+      await sendMessage(chatId, 'Saved!\n' + formatPlace(saved) + '\n\nReply /visited to mark done, /undo to delete.', 'Markdown');
+    } catch (err) {
+      await sendMessage(chatId, 'Error: ' + err.message);
+    }
+    return res.status(200).json({ ok: true });
+  }
 
   try {
 
@@ -134,22 +167,16 @@ module.exports = async function handler(req, res) {
       var mapsMatch = text.match(MAPS_PATTERN);
 
       if (mapsMatch) {
-        var mapsInsert = await supabase
-          .from('places')
-          .insert([{
-            name: 'Place from Maps',
-            maps_url: mapsMatch[0],
-            type: 'khac',
-            status: 'wishlist',
-            added_by: userId
-          }])
-          .select()
-          .single();
-        if (mapsInsert.error) {
-          await sendMessage(chatId, 'Error saving: ' + mapsInsert.error.message);
-        } else {
-          await sendMessage(chatId, 'Saved from Maps link!\n' + formatPlace(mapsInsert.data), 'Markdown');
-        }
+        await sendMessage(chatId, 'Saving...');
+        var remainingText = text.replace(MAPS_PATTERN, '').trim();
+        var parsed = await parsePlaceFromMapsUrl(mapsMatch[0], remainingText || null);
+        var mapsData = Object.assign({}, parsed, {
+          maps_url: mapsMatch[0],
+          status: 'wishlist',
+          added_by: userId
+        });
+        var mapsInsert = await savePlace(mapsData);
+        await sendMessage(chatId, 'Saved!\n' + formatPlace(mapsInsert) + '\n\nReply /visited to mark done, /undo to delete.', 'Markdown');
 
       } else {
         await sendMessage(chatId, 'Saving...');

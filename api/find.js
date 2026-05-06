@@ -101,6 +101,7 @@ var handler = async function handler(req, res) {
   if (area) dbQuery = dbQuery.ilike('area', '%' + area + '%');
   if (type) dbQuery = dbQuery.eq('type', type);
   if (status) dbQuery = dbQuery.eq('status', status);
+  if (req.query.favorite === 'true') dbQuery = dbQuery.eq('is_favorite', true);
   if (q) dbQuery = dbQuery.or('name.ilike.%' + q + '%,notes.ilike.%' + q + '%,area.ilike.%' + q + '%');
 
   var result = await dbQuery;
