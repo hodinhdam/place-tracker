@@ -17,14 +17,6 @@ New features start with a PRD, UI screens designed in Google Stitch via MCP, the
 
 ---
 
-## Screenshots
-
-| Dashboard | Bot in action |
-|---|---|
-| ![Dashboard](docs/screenshot-dashboard.png) | ![Bot](docs/screenshot-bot.png) |
-
----
-
 ## Features
 
 - **Telegram bot** — capture a place in under 10 seconds, free-form Vietnamese text or Google Maps link
