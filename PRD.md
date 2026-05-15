@@ -1,23 +1,25 @@
-# VinaVault — Product Requirements Document
+# Places You Love — Product Requirements Document
 
-**Version:** 1.1  
-**Last updated:** 2026-05-05  
-**Owner:** Dam Ho  
-**Status:** Live (MVP shipped)
+**Version:** 1.2
+**Last updated:** 2026-05-15
+**Owner:** Dam Ho
+**Status:** Live (MVP shipped, iterating)
 
 ---
 
 ## Overview
 
-VinaVault is a personal place-tracking app for Dam Ho and family to save, organize, and rediscover favorite spots across Vietnam. Places are added via a Telegram bot (quick capture on mobile) and browsed via a web dashboard.
+Places You Love is a personal place-tracking app for Dam Ho and family to save, organize, and rediscover favorite spots across Vietnam. Places are captured via a Telegram bot (text, screenshot, or Maps link) and browsed via a web dashboard.
+
+Internal codename: **VinaVault**.
 
 ---
 
 ## Goals
 
-- Capture a place in under 10 seconds from Telegram (text or Maps link)
+- Capture a place in under 10 seconds from Telegram (text, photo, or Maps link)
 - Browse and filter saved places on a mobile-friendly web dashboard
-- Track wishlist vs. visited status
+- Track three lifecycle states: wishlist, visited, and favorite
 - Keep it simple — no accounts, no social features, personal use only
 
 ---
@@ -28,10 +30,11 @@ VinaVault is a personal place-tracking app for Dam Ho and family to save, organi
 |---|---|
 | Hosting | Vercel (serverless functions) |
 | Database | Supabase (Postgres) |
-| AI parsing | Claude Haiku (`claude-haiku-4-5-20251001`) |
+| AI parsing | Claude Haiku (`claude-haiku-4-5-20251001`) — text + vision |
 | Bot interface | Telegram Bot API (webhook mode) |
+| Geocoding | OpenStreetMap Nominatim (reverse geocode from Maps URL) |
 | Frontend | Vanilla HTML/JS + Tailwind CDN |
-| Design system | VinaVault (Material Design 3 tokens, Be Vietnam Pro font) |
+| Design system | Material Design 3 tokens, Be Vietnam Pro font (designed in Google Stitch via MCP) |
 
 ---
 
@@ -39,6 +42,7 @@ VinaVault is a personal place-tracking app for Dam Ho and family to save, organi
 
 - **Dashboard:** https://place-tracker-xi.vercel.app
 - **GitHub:** https://github.com/hodinhdam/place-tracker
+- **Telegram webhook:** `https://place-tracker-xi.vercel.app/api/telegram`
 
 ---
 
@@ -60,6 +64,7 @@ VinaVault is a personal place-tracking app for Dam Ho and family to save, organi
 | lng | float | Longitude |
 | rating | int | 1–5 |
 | tags | text[] | Free tags |
+| is_favorite | bool | Default `false`; partial index on `TRUE` |
 | added_by | text | Telegram user ID |
 | created_at | timestamptz | Auto |
 
@@ -84,16 +89,18 @@ Search and filter places.
 | status | string | `wishlist` or `visited` |
 | type | string | Place type |
 | area | string | Area partial match |
+| favorite | string | `true` to return only favorited places |
 
 ### `PATCH /api/find?id=<uuid>`
-Update a place (e.g. mark as visited).  
-Body: `{ "status": "visited" }`
+Update a place. Body examples:
+- `{ "status": "visited" }`
+- `{ "is_favorite": true }`
 
 ### `DELETE /api/find?id=<uuid>`
 Delete a place by ID.
 
 ### `POST /api/save`
-Save a place directly (no AI parsing).  
+Save a place directly (no AI parsing).
 Body: `{ name, area, type, notes, maps_url, status, address, lat, lng, rating, tags, added_by }`
 
 ### `POST /api/telegram`
@@ -101,15 +108,27 @@ Telegram webhook handler. Registered at `https://place-tracker-xi.vercel.app/api
 
 ---
 
+## Telegram Bot — Input Modes
+
+Three ways to add a place, all stateless (no pending-transaction table):
+
+1. **Free-form text** — Claude Haiku parses Vietnamese text, extracts name/area/type/notes, saves as `wishlist`.
+2. **Photo / screenshot** — Claude Vision reads the image (Instagram post, menu board, Google Maps screenshot) and extracts place info. Optional caption adds context. If no Maps URL is found, the bot auto-generates a Maps search link.
+3. **Google Maps URL** — Bot resolves short links (`goo.gl`, `maps.app.goo.gl`) → extracts coordinates → reverse-geocodes via Nominatim to fill area + address.
+
+---
+
 ## Telegram Bot Commands
 
 | Command | Description |
 |---|---|
-| (free text) | Claude AI parses Vietnamese text → saves as wishlist place |
-| (Maps URL) | Saves directly with the Maps link |
+| (free text) | Claude AI parses Vietnamese text → saves as wishlist |
+| (photo) | Claude Vision parses image → saves as wishlist |
+| (Maps URL) | Resolves + geocodes → saves with lat/lng |
 | `/find [query]` | Search saved places |
 | `/wishlist` | List all wishlist places |
 | `/visited` | Mark last saved place as visited |
+| `/fav` | Mark last saved place as favorite |
 | `/undo` | Delete last saved place |
 | `/trips` | List all trips |
 | `/addtrip [name]` | Create a new trip |
@@ -118,15 +137,22 @@ Telegram webhook handler. Registered at `https://place-tracker-xi.vercel.app/api
 
 ## Web Dashboard Features
 
-- **Stats bar** — Total / Visited / Wishlist counts
-- **Search** — Live search across name, area, notes
-- **Filter pills** — By status (All / Wishlist / Visited) and type
-- **Place cards** — Name, area, notes, type badge, status badge, Maps link
-- **Mark Visited button** — One tap updates status (wishlist cards only)
-- **Delete button** — Confirmation prompt then removes place
-- **Add Place modal** — Form with name, area, type, notes, Maps URL, status
-- **Desktop sidebar nav** — Dashboard / Explore / Wishlist / Visited
-- **Mobile bottom nav** — Home / Explore / Wishlist / Visited + FAB
+Five views, accessible via desktop sidebar and mobile bottom nav:
+
+- **Dashboard** — Stats overview (Total / Visited / Wishlist)
+- **Places** — Full grid of all saved places
+- **Wishlist** — Only `status = wishlist`
+- **Visited** — Only `status = visited`
+- **Favorites** — Only `is_favorite = true`
+
+Inside each view:
+
+- **Live search** across name, area, notes
+- **Filter pills** — status, type, ❤️ Favorites
+- **Place cards** — name, area, notes, type badge, status badge, Maps link
+- **Card actions** — Mark Visited · Favorite (toggle) · Edit · Delete
+- **Add / Edit modal** — Full form: name, area, type, status, notes, Maps URL
+- **Mobile FAB** — Quick-add from any screen
 
 ---
 
@@ -148,8 +174,18 @@ Telegram webhook handler. Registered at `https://place-tracker-xi.vercel.app/api
 |---|---|
 | `SUPABASE_URL` | Supabase REST URL (with `/rest/v1/` suffix) |
 | `SUPABASE_ANON_KEY` | Supabase anon/public key |
-| `ANTHROPIC_API_KEY` | Anthropic API key for Claude |
+| `ANTHROPIC_API_KEY` | Anthropic API key for Claude (text + vision) |
 | `TELEGRAM_TOKEN` | Telegram bot token |
+
+---
+
+## Development Workflow
+
+```
+PRD → Stitch (UI design) → Claude Code (implement) → vercel deploy --prod
+```
+
+New features start with a PRD update, UI screens designed in Google Stitch via MCP, then implemented in Claude Code and deployed to Vercel.
 
 ---
 
@@ -157,14 +193,14 @@ Telegram webhook handler. Registered at `https://place-tracker-xi.vercel.app/api
 
 - Search is case-insensitive but **not** accent-insensitive (searching "com tam" won't match "Cơm Tấm")
 - No authentication — dashboard is public (personal use, obscurity by URL)
-- Telegram `/visited` and `/undo` target the last saved place globally per user ID, not per session
+- Telegram `/visited`, `/fav`, and `/undo` target the last saved place globally per user ID, not per session
 
 ---
 
-## Potential Next Steps
+## Backlog
 
-- Accent-insensitive search via Postgres `unaccent` extension
-- Image upload per place
-- Trip collections (assign places to a trip)
-- Map view (cluster pins by area)
-- Share a place card as an image
+- [ ] Accent-insensitive search via Postgres `unaccent` extension
+- [ ] Image upload per place
+- [ ] Assign places to a trip from the dashboard
+- [ ] Map view with clustered pins by area
+- [ ] Share a place card as an image
