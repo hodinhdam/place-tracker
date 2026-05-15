@@ -53,6 +53,17 @@ async function markVisited(placeId) {
   return result.data;
 }
 
+async function markFavorite(placeId) {
+  var result = await supabase
+    .from('places')
+    .update({ is_favorite: true })
+    .eq('id', placeId)
+    .select()
+    .single();
+  if (result.error) throw result.error;
+  return result.data;
+}
+
 async function deletePlace(placeId) {
   var result = await supabase.from('places').delete().eq('id', placeId);
   if (result.error) throw result.error;
@@ -117,6 +128,7 @@ handler.findPlaces = findPlaces;
 handler.getWishlist = getWishlist;
 handler.getLastSaved = getLastSaved;
 handler.markVisited = markVisited;
+handler.markFavorite = markFavorite;
 handler.deletePlace = deletePlace;
 
 module.exports = handler;

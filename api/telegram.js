@@ -1,7 +1,7 @@
 'use strict';
 const { createClient } = require('@supabase/supabase-js');
 const { parseAndSavePlace, parsePlaceFromMapsUrl, parsePlaceFromImage, savePlace } = require('./save');
-const { findPlaces, getWishlist, getLastSaved, markVisited, deletePlace } = require('./find');
+const { findPlaces, getWishlist, getLastSaved, markVisited, markFavorite, deletePlace } = require('./find');
 
 const supabase = createClient(
   (process.env.SUPABASE_URL || '').replace('/rest/v1/', ''),
@@ -117,6 +117,16 @@ module.exports = async function handler(req, res) {
       } else {
         await markVisited(last.id);
         await sendMessage(chatId, 'Marked *' + last.name + '* as visited ✓', 'Markdown');
+      }
+
+    // /fav — mark last saved place as favorite
+    } else if (text === '/fav') {
+      var lastFav = await getLastSaved(userId);
+      if (!lastFav) {
+        await sendMessage(chatId, 'No recently saved place found.');
+      } else {
+        await markFavorite(lastFav.id);
+        await sendMessage(chatId, 'Favorited *' + lastFav.name + '* ❤️', 'Markdown');
       }
 
     // /undo — delete last saved place
