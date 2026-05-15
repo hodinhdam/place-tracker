@@ -1,6 +1,6 @@
 # Places You Love — Product Requirements Document
 
-**Version:** 1.2
+**Version:** 1.3
 **Last updated:** 2026-05-15
 **Owner:** Dam Ho
 **Status:** Live (MVP shipped, iterating)
@@ -81,14 +81,14 @@ Internal codename: **VinaVault**.
 ## API Endpoints
 
 ### `GET /api/find`
-Search and filter places.
+Search and filter places. Backed by the `search_places` Postgres RPC, so all text matching is **accent-insensitive** (`com tam` matches `Cơm Tấm`).
 
 | Param | Type | Description |
 |---|---|---|
-| q | string | Full-text search across name, area, notes |
+| q | string | Full-text search across name, area, notes (accent-insensitive) |
 | status | string | `wishlist` or `visited` |
 | type | string | Place type |
-| area | string | Area partial match |
+| area | string | Area partial match (accent-insensitive) |
 | favorite | string | `true` to return only favorited places |
 
 ### `PATCH /api/find?id=<uuid>`
@@ -191,7 +191,6 @@ New features start with a PRD update, UI screens designed in Google Stitch via M
 
 ## Known Limitations
 
-- Search is case-insensitive but **not** accent-insensitive (searching "com tam" won't match "Cơm Tấm")
 - No authentication — dashboard is public (personal use, obscurity by URL)
 - Telegram `/visited`, `/fav`, and `/undo` target the last saved place globally per user ID, not per session
 
@@ -199,7 +198,6 @@ New features start with a PRD update, UI screens designed in Google Stitch via M
 
 ## Backlog
 
-- [ ] Accent-insensitive search via Postgres `unaccent` extension
 - [ ] Image upload per place
 - [ ] Assign places to a trip from the dashboard
 - [ ] Map view with clustered pins by area

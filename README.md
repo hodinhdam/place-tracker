@@ -21,7 +21,7 @@ New features start with a PRD, UI screens designed in Google Stitch via MCP, the
 
 - **Telegram bot** — capture a place in under 10 seconds: free-form Vietnamese text, screenshot, or Google Maps link
 - **AI parsing** — Claude Haiku extracts name, area, type, and notes automatically
-- **Web dashboard** — search, filter by status / type / favorite, mark visited, favorite, edit, delete
+- **Web dashboard** — accent-insensitive search ("com tam" → "Cơm Tấm"), filter by status / type / favorite, mark visited, favorite, edit, delete
 - **Wishlist → Visited** — track what's been explored
 - **Favorites** — mark standout places, filter to just the keepers
 - **Trip collections** — create trips via Telegram (assignment from UI is in the backlog)
@@ -76,7 +76,7 @@ Five views, accessible via desktop sidebar and mobile bottom nav:
 
 Inside each view:
 
-- **Live search** across name, area, notes
+- **Live search** across name, area, notes — accent-insensitive (gõ "pho" cũng ra "Phở")
 - **Filter pills** — status, type, ❤️ Favorites
 - **Place cards** — name, area, notes, type badge, status badge, Maps link
 - **Card actions** — Mark Visited · Favorite (toggle) · Edit · Delete
@@ -158,7 +158,7 @@ public/
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/api/find` | Search / filter. Query params: `q`, `status`, `type`, `area`, `favorite` (=`true`) |
+| `GET` | `/api/find` | Search / filter via `search_places` RPC — accent-insensitive. Query params: `q`, `status`, `type`, `area`, `favorite` (=`true`) |
 | `PATCH` | `/api/find?id=<uuid>` | Update place. Body example: `{ "status": "visited" }`, `{ "is_favorite": true }` |
 | `DELETE` | `/api/find?id=<uuid>` | Delete place |
 | `POST` | `/api/save` | Save place directly (no AI). Body: name (required), area, type, notes, maps_url, status, address, lat, lng, rating, tags, added_by |
@@ -201,13 +201,11 @@ curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://your-app.vercel
 
 ## Known Limitations
 
-- Search is case-insensitive but **not** accent-insensitive ("com tam" ≠ "Cơm Tấm")
 - No auth — dashboard public by obscurity (personal use only)
 - `/visited`, `/fav`, and `/undo` target the last saved place per Telegram user ID (global, not per-session)
 
 ## Backlog
 
-- [ ] Accent-insensitive search via Postgres `unaccent`
 - [ ] Image upload per place
 - [ ] Assign places to a trip from the dashboard
 - [ ] Map view with clustered pins by area
