@@ -1,4 +1,4 @@
-# VinaVault
+# Places You Love
 
 A personal place-tracking app for saving and rediscovering favorite spots in Vietnam. Add places instantly via Telegram, browse them on a web dashboard.
 
