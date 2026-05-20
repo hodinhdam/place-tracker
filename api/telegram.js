@@ -8,7 +8,7 @@ const supabase = createClient(
   process.env.SUPABASE_ANON_KEY
 );
 
-const MAPS_PATTERN = /https?:\/\/(maps\.google\.com|goo\.gl|maps\.app\.goo\.gl)\S*/i;
+const MAPS_PATTERN = /https?:\/\/(maps\.google\.com|goo\.gl|maps\.app\.goo\.gl|(?:www\.)?google\.com\/maps)\S*/i;
 
 const TYPE_LABELS = {
   an_uong: 'An uong',
