@@ -57,7 +57,7 @@ New features start with a PRD, UI screens designed in Google Stitch via MCP, the
 4. Bot auto-generates a Google Maps search link if no URL is found
 
 **Google Maps URL:**
-1. Paste any Maps link (`goo.gl`, `maps.app.goo.gl`, `maps.google.com`)
+1. Paste any Maps link (`goo.gl`, `maps.app.goo.gl`, `maps.google.com`, `www.google.com/maps/...`)
 2. Bot resolves the short URL → extracts place name + coordinates
 3. Reverse geocodes via OpenStreetMap → fills area + address automatically
 4. Saves with exact lat/lng for future map view

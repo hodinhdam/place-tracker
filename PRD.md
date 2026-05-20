@@ -114,7 +114,7 @@ Three ways to add a place, all stateless (no pending-transaction table):
 
 1. **Free-form text** — Claude Haiku parses Vietnamese text, extracts name/area/type/notes, saves as `wishlist`.
 2. **Photo / screenshot** — Claude Vision reads the image (Instagram post, menu board, Google Maps screenshot) and extracts place info. Optional caption adds context. If no Maps URL is found, the bot auto-generates a Maps search link.
-3. **Google Maps URL** — Bot resolves short links (`goo.gl`, `maps.app.goo.gl`) → extracts coordinates → reverse-geocodes via Nominatim to fill area + address.
+3. **Google Maps URL** — Bot accepts short links (`goo.gl`, `maps.app.goo.gl`) and long links (`www.google.com/maps/...`) → resolves redirect → extracts coordinates → reverse-geocodes via Nominatim to fill area + address. URLs without a `/place/<name>` segment save with name fallback `"Place from Maps"` — rename via dashboard.
 
 ---
 
