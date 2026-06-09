@@ -24,6 +24,7 @@ New features start with a PRD, UI screens designed in Google Stitch via MCP, the
 - **Web dashboard** — accent-insensitive search ("com tam" → "Cơm Tấm"), filter by status / type / favorite, mark visited, favorite, edit, delete
 - **Wishlist → Visited** — track what's been explored
 - **Favorites** — mark standout places, filter to just the keepers
+- **Place photos** — a photo sent to the bot is stored and shown on the dashboard card (falls back to a type gradient + emoji when none)
 - **Trip collections** — create trips via Telegram (assignment from UI is in the backlog)
 
 ---
@@ -142,7 +143,10 @@ public/
 | tags | text[] | Free tags |
 | is_favorite | bool | Default `false`; partial index on `TRUE` |
 | added_by | text | Telegram user ID |
+| image_url | text | Public URL of place photo (Supabase Storage `place-images` bucket) |
 | created_at | timestamptz | Auto |
+
+**Storage:** public bucket `place-images` holds place photos; anon `INSERT`/`SELECT` policies scoped to that bucket.
 
 **Table: `trips`**
 
@@ -206,7 +210,8 @@ curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://your-app.vercel
 
 ## Backlog
 
-- [ ] Image upload per place
+- [x] Image upload per place — Phase 1: Telegram photo → `place-images` bucket → card
+- [ ] Place images Phase 2: auto-pull Google Maps photo (needs Google Places API key + billing)
 - [ ] Assign places to a trip from the dashboard
 - [ ] Map view with clustered pins by area
 - [ ] Share a place card as image

@@ -1,7 +1,7 @@
 # Places You Love — Product Requirements Document
 
-**Version:** 1.3
-**Last updated:** 2026-05-15
+**Version:** 1.4
+**Last updated:** 2026-06-09
 **Owner:** Dam Ho
 **Status:** Live (MVP shipped, iterating)
 
@@ -66,6 +66,7 @@ Internal codename: **VinaVault**.
 | tags | text[] | Free tags |
 | is_favorite | bool | Default `false`; partial index on `TRUE` |
 | added_by | text | Telegram user ID |
+| image_url | text | Public URL of the place photo (Supabase Storage `place-images` bucket) |
 | created_at | timestamptz | Auto |
 
 **Table: `trips`**
@@ -113,7 +114,7 @@ Telegram webhook handler. Registered at `https://place-tracker-xi.vercel.app/api
 Three ways to add a place, all stateless (no pending-transaction table):
 
 1. **Free-form text** — Claude Haiku parses Vietnamese text, extracts name/area/type/notes, saves as `wishlist`.
-2. **Photo / screenshot** — Claude Vision reads the image (Instagram post, menu board, Google Maps screenshot) and extracts place info. Optional caption adds context. If no Maps URL is found, the bot auto-generates a Maps search link.
+2. **Photo / screenshot** — Claude Vision reads the image (Instagram post, menu board, Google Maps screenshot) and extracts place info. Optional caption adds context. If no Maps URL is found, the bot auto-generates a Maps search link. The photo itself is stored as the place image (`image_url`) and shown on the dashboard card.
 3. **Google Maps URL** — Bot accepts short links (`goo.gl`, `maps.app.goo.gl`) and long links (`www.google.com/maps/...`) → resolves redirect → extracts coordinates → reverse-geocodes via Nominatim to fill area + address. URLs without a `/place/<name>` segment save with name fallback `"Place from Maps"` — rename via dashboard.
 
 ---
@@ -198,7 +199,8 @@ New features start with a PRD update, UI screens designed in Google Stitch via M
 
 ## Backlog
 
-- [ ] Image upload per place
+- [x] Image upload per place — Phase 1: Telegram photo → `place-images` bucket → card (shipped 2026-06-09)
+- [ ] Place images Phase 2: auto-pull Google Maps photo (needs Google Places API key + billing)
 - [ ] Assign places to a trip from the dashboard
 - [ ] Map view with clustered pins by area
 - [ ] Share a place card as an image
