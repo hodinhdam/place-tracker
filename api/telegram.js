@@ -1,6 +1,6 @@
 'use strict';
 const { createClient } = require('@supabase/supabase-js');
-const { parseAndSavePlace, parsePlaceFromMapsUrl, parsePlaceFromImage, savePlace } = require('./save');
+const { parseAndSavePlace, parsePlaceFromMapsUrl, parsePlaceFromImage, savePlace, uploadPlaceImage } = require('./save');
 const { findPlaces, getWishlist, getLastSaved, markVisited, markFavorite, deletePlace } = require('./find');
 
 const supabase = createClient(
@@ -94,6 +94,11 @@ module.exports = async function handler(req, res) {
       var mediaType = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : 'image/png';
       var caption = msg.caption || null;
       var parsed = await parsePlaceFromImage(imgBase64, mediaType, caption);
+      // Keep the sent photo as the place image (was previously only used for
+      // Vision parsing then discarded). Non-fatal — null just falls back to the
+      // gradient header on the dashboard.
+      var uploadedUrl = await uploadPlaceImage(Buffer.from(imgBuffer), mediaType);
+      if (uploadedUrl) parsed.image_url = uploadedUrl;
       if (!parsed.name) parsed.name = 'Place from screenshot';
       if (!parsed.maps_url) {
         var searchQuery = [parsed.name, parsed.address, parsed.area].filter(Boolean).join(' ');

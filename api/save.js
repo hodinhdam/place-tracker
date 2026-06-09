@@ -2,10 +2,32 @@
 const { createClient } = require('@supabase/supabase-js');
 const Anthropic = require('@anthropic-ai/sdk');
 
-const supabase = createClient(
-  (process.env.SUPABASE_URL || '').replace('/rest/v1/', ''),
-  process.env.SUPABASE_ANON_KEY
-);
+const SUPABASE_BASE = (process.env.SUPABASE_URL || '').replace('/rest/v1/', '');
+const supabase = createClient(SUPABASE_BASE, process.env.SUPABASE_ANON_KEY);
+
+// Storage writes use the service_role key (server-only) so the bucket can stay
+// locked to anon. Falls back to the anon client if the key isn't set.
+const IMAGE_BUCKET = 'place-images';
+const supabaseAdmin = process.env.SUPABASE_SERVICE_ROLE_KEY
+  ? createClient(SUPABASE_BASE, process.env.SUPABASE_SERVICE_ROLE_KEY)
+  : supabase;
+
+// Upload a place photo to Storage and return its public URL. Non-fatal: returns
+// null on any failure so the place still saves without an image.
+async function uploadPlaceImage(buffer, mediaType) {
+  try {
+    const ext = mediaType === 'image/png' ? 'png' : 'jpg';
+    const path = Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.' + ext;
+    const { error } = await supabaseAdmin.storage
+      .from(IMAGE_BUCKET)
+      .upload(path, buffer, { contentType: mediaType, upsert: false });
+    if (error) return null;
+    const { data } = supabaseAdmin.storage.from(IMAGE_BUCKET).getPublicUrl(path);
+    return data ? data.publicUrl : null;
+  } catch {
+    return null;
+  }
+}
 // timeout/maxRetries guard: SDK default is 10min + 2 retries with backoff, which
 // can blow past the function's maxDuration and get the whole webhook killed
 // (no response → Telegram retries → duplicate saves). Cap it so a slow Haiku
@@ -164,7 +186,7 @@ const handler = async function handler(req, res) {
   }
 
   const body = req.body || {};
-  const { name, area, type, address, maps_url, lat, lng, notes, status, rating, tags, added_by } = body;
+  const { name, area, type, address, maps_url, lat, lng, notes, status, rating, tags, added_by, image_url } = body;
 
   if (!name) {
     return res.status(400).json({ error: 'name is required' });
@@ -184,7 +206,8 @@ const handler = async function handler(req, res) {
       status: status || 'wishlist',
       rating: rating || null,
       tags: tags || null,
-      added_by: added_by || null
+      added_by: added_by || null,
+      image_url: image_url || null
     }])
     .select()
     .single();
@@ -201,5 +224,6 @@ handler.savePlace = savePlace;
 handler.parseAndSavePlace = parseAndSavePlace;
 handler.parsePlaceFromMapsUrl = parsePlaceFromMapsUrl;
 handler.parsePlaceFromImage = parsePlaceFromImage;
+handler.uploadPlaceImage = uploadPlaceImage;
 
 module.exports = handler;

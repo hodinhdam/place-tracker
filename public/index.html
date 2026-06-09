@@ -547,9 +547,13 @@
         '<span class="material-symbols-outlined text-sm' + (p.is_favorite ? ' filled' : '') + '">favorite</span>' +
         (p.is_favorite ? 'Favorited' : 'Favorite') + '</button>';
 
+      var headerInner = p.image_url
+        ? '<img src="' + escHtml(p.image_url) + '" alt="' + escHtml(p.name) + '" loading="lazy" class="w-full h-full object-cover" onerror="this.remove()">'
+        : '<span class="text-4xl">' + tm.emoji + '</span>';
+
       return '<div class="place-card glass-card rounded-2xl overflow-hidden shadow-card">' +
         '<div class="h-32 bg-gradient-to-br ' + grad + ' flex items-center justify-center relative">' +
-        '<span class="text-4xl">' + tm.emoji + '</span>' +
+        headerInner +
         (isVisited ? '<div class="absolute top-2 right-2 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center"><span class="material-symbols-outlined text-white text-xs filled">check</span></div>' : '') +
         (p.is_favorite ? '<div class="absolute top-2 left-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center"><span class="material-symbols-outlined text-white text-xs filled">favorite</span></div>' : '') +
         '</div>' +
