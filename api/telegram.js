@@ -22,11 +22,22 @@ async function sendMessage(chatId, text, parseMode) {
   var url = 'https://api.telegram.org/bot' + process.env.TELEGRAM_TOKEN + '/sendMessage';
   var body = { chat_id: chatId, text: text };
   if (parseMode) body.parse_mode = parseMode;
-  await fetch(url, {
+  var resp = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body)
   });
+  // Markdown parse errors (a lone _ or * in a place name, notes, or maps_url —
+  // e.g. the `_` in `?g_st=ac`) make Telegram return 400 and silently drop the
+  // message. Retry once as plain text so the user still gets a reply.
+  if (parseMode && resp && !resp.ok) {
+    delete body.parse_mode;
+    await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+  }
 }
 
 function formatPlace(place) {
