@@ -6,7 +6,15 @@ const supabase = createClient(
   (process.env.SUPABASE_URL || '').replace('/rest/v1/', ''),
   process.env.SUPABASE_ANON_KEY
 );
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+// timeout/maxRetries guard: SDK default is 10min + 2 retries with backoff, which
+// can blow past the function's maxDuration and get the whole webhook killed
+// (no response → Telegram retries → duplicate saves). Cap it so a slow Haiku
+// call aborts gracefully and falls back to URL-derived name.
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+  timeout: 8000,
+  maxRetries: 1
+});
 
 // System prompt is stable — cache_control marks it for reuse across requests.
 // Haiku 4.5 requires 4096+ tokens to cache; this prompt is shorter but the
