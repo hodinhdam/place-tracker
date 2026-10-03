@@ -107,6 +107,7 @@ module.exports = async function handler(req, res) {
       var saved = await savePlace(Object.assign({}, parsed, { status: 'wishlist', added_by: userId }));
       await sendMessage(chatId, 'Saved!\n' + formatPlace(saved) + '\n\nReply /visited to mark done, /undo to delete.', 'Markdown');
     } catch (err) {
+      console.error('telegram photo handler failed:', err);
       await sendMessage(chatId, 'Error: ' + err.message);
     }
     return res.status(200).json({ ok: true });
@@ -216,6 +217,7 @@ module.exports = async function handler(req, res) {
     }
 
   } catch (err) {
+    console.error('telegram handler failed:', err);
     await sendMessage(chatId, 'Error: ' + err.message);
   }
 

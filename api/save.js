@@ -43,15 +43,32 @@ const anthropic = new Anthropic({
 // marker is intentional so caching kicks in automatically if the prompt grows.
 const PARSE_SYSTEM =
   'You are a Vietnamese place description parser. ' +
-  'Extract place information from the input and return ONLY a valid JSON object. ' +
-  'Fields: name (string, required — the place name), ' +
-  'area (string — district and city, e.g. "Quan 1, TP.HCM"), ' +
-  'type (string — one of: an_uong, ca_phe, du_lich, mua_sam, khac), ' +
-  'notes (string — tips, dish names, or details), ' +
-  'address (string or null — street address if mentioned). ' +
-  'Return raw JSON only, no markdown fences, no explanation.';
+  'Extract place information from the input and call the save_place tool with it. ' +
+  'name is the place name; area is district and city, e.g. "Quan 1, TP.HCM"; ' +
+  'notes are tips, dish names, or details; address is the street address if mentioned.';
 
-async function parsePlaceFromText(text) {
+// Forced tool use instead of "return raw JSON": the model sometimes wrapped the
+// JSON in prose or extra text, and JSON.parse on that threw "not valid JSON"
+// back to the user. A forced tool call always yields a parsed object.
+const PLACE_TOOL = {
+  name: 'save_place',
+  description: 'Save the extracted place.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      name: { type: 'string', description: 'Place name' },
+      area: { type: 'string', description: 'District and city' },
+      type: { type: 'string', enum: ['an_uong', 'ca_phe', 'du_lich', 'mua_sam', 'khac'] },
+      notes: { type: 'string', description: 'Tips, dish names, or details' },
+      address: { type: ['string', 'null'], description: 'Street address if mentioned' }
+    },
+    required: ['name']
+  }
+};
+
+const PLACE_FIELDS = ['name', 'area', 'type', 'notes', 'address'];
+
+async function callParser(content) {
   const message = await anthropic.messages.create({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 512,
@@ -62,14 +79,22 @@ async function parsePlaceFromText(text) {
         cache_control: { type: 'ephemeral' }
       }
     ],
-    messages: [{ role: 'user', content: text }]
+    tools: [PLACE_TOOL],
+    tool_choice: { type: 'tool', name: PLACE_TOOL.name },
+    messages: [{ role: 'user', content }]
   });
-  const raw = message.content[0].text
-    .trim()
-    .replace(/^```json?\n?/, '')
-    .replace(/```$/, '')
-    .trim();
-  return JSON.parse(raw);
+  const block = message.content.find(function(b) { return b.type === 'tool_use'; });
+  if (!block || !block.input) throw new Error('Parser returned no place data');
+  // Only keep known columns so a stray field can't break the Supabase insert.
+  const parsed = {};
+  PLACE_FIELDS.forEach(function(f) {
+    if (block.input[f] !== undefined && block.input[f] !== '') parsed[f] = block.input[f];
+  });
+  return parsed;
+}
+
+async function parsePlaceFromText(text) {
+  return callParser(text);
 }
 
 async function savePlace(placeData) {
@@ -163,19 +188,29 @@ async function parsePlaceFromImage(imageBase64, mediaType, caption) {
     { type: 'image', source: { type: 'base64', media_type: mediaType, data: imageBase64 } },
     { type: 'text', text: caption || 'Extract place information from this screenshot.' }
   ];
-  const message = await anthropic.messages.create({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 512,
-    system: [{ type: 'text', text: PARSE_SYSTEM, cache_control: { type: 'ephemeral' } }],
-    messages: [{ role: 'user', content }]
-  });
-  const raw = message.content[0].text.trim()
-    .replace(/^```json?\n?/, '').replace(/```$/, '').trim();
-  return JSON.parse(raw);
+  try {
+    return await callParser(content);
+  } catch (err) {
+    // Non-fatal: telegram.js falls back to a default name + Maps search link.
+    console.error('parsePlaceFromImage failed:', err);
+    return {};
+  }
 }
 
 async function parseAndSavePlace(text, userId) {
-  const parsed = await parsePlaceFromText(text);
+  let parsed;
+  try {
+    parsed = await parsePlaceFromText(text);
+  } catch (err) {
+    // Don't lose the message if the parser fails — save the raw text so it can
+    // be edited on the dashboard later.
+    console.error('parsePlaceFromText failed:', err);
+    parsed = {};
+  }
+  if (!parsed.name) {
+    parsed.name = text.split('\n')[0].slice(0, 100);
+    if (!parsed.notes && text.length > parsed.name.length) parsed.notes = text;
+  }
   return savePlace(Object.assign({}, parsed, { status: 'wishlist', added_by: userId }));
 }
 
